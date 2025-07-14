@@ -8,11 +8,12 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.3.0",
-    "mammoth": "^1.4.19" 
+    "docx-preview": "^0.3.5",
+    "mammoth": "^1.4.19",
+    "vue": "^3.3.0"
   },
   "devDependencies": {
-    "vite": "^4.4.9",
-    "@vitejs/plugin-vue": "^4.1.1"
+    "@vitejs/plugin-vue": "^4.1.1",
+    "vite": "^4.4.9"
   }
 }

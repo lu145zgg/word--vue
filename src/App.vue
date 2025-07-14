@@ -1,42 +1,39 @@
 <template>
   <div class="container">
-    <h1>带调试输出的 Word 渲染（Mammoth）</h1>
+    <h1>DOCX Preview 完整渲染示例</h1>
     <input type="file" accept=".docx" @change="onFileChange" />
 
-    <!-- 渲染区域：如果有 HTML，就用 v-html 显示 -->
-    <div v-if="htmlContent" class="docx-container" v-html="htmlContent"></div>
-    <p v-else class="tip">请选择一个 .docx 文件，稍等片刻即可看到渲染结果。</p>
+    <!-- 渲染容器 -->
+    <div ref="viewer" class="docx-viewer"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import mammoth from 'mammoth'
+import { renderAsync } from 'docx-preview'
 
-// 用来存放转换后的 HTML
-const htmlContent = ref('')
+const viewer = ref<HTMLElement | null>(null)
 
 async function onFileChange(evt: Event) {
   const input = evt.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
+  if (!file || !viewer.value) return
 
   try {
-    // 1. 读取文件为二进制 ArrayBuffer
+    // 1. 读取二进制
     const arrayBuffer = await file.arrayBuffer()
 
-    // 2. 调用 mammoth 转 HTML
-    const { value: html } = await mammoth.convertToHtml({ arrayBuffer })
+    // 2. 清空上次渲染内容
+    viewer.value.innerHTML = ''
 
-    // 3. 在这里打印出 Mammoth 的原始 HTML 输出，方便调试
-    console.log('【Mammoth 输出的 HTML】：', html)
+    // 3. 调用 docx-preview 渲染到容器（不传第三个参数）
+    await renderAsync(arrayBuffer, viewer.value)
 
-    // 4. 注入页面
-    htmlContent.value = html
+    console.log('渲染完成')
   }
   catch (err) {
-    console.error('Mammoth 解析出错：', err)
-    alert('文档解析失败，请查看控制台')
+    console.error('docx-preview 渲染出错：', err)
+    alert('渲染失败，请查看控制台')
   }
 }
 </script>
@@ -51,41 +48,39 @@ async function onFileChange(evt: Event) {
 input[type="file"] {
   margin-top: 1rem;
 }
-.tip {
+/* 渲染区滚动容器 */
+.docx-viewer {
   margin-top: 1rem;
-  color: #888;
-}
-.docx-container {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  border: 1px solid #ddd;
-  background: #fafafa;
-  color: #000
+  max-height: 80vh;
+  overflow: auto;
 }
 
-.docx-container * {
-  color: inherit !important;
-}
-/* 基本段落间距 */
-.docx-container p {
-  margin: 0.5em 0;
-}
 /* 表格样式 */
-.docx-container table {
+.docx-viewer table {
   width: 100%;
   border-collapse: collapse;
   margin: 1em 0;
 }
-.docx-container th,
-.docx-container td {
+.docx-viewer th,
+.docx-viewer td {
   border: 1px solid #ccc;
-  padding: 0.5em;
+  padding: 4px;
 }
-/* 图片自适应宽度 */
-.docx-container img {
+
+/* 段落和列表间距 */
+.docx-viewer p {
+  margin: 0.5em 0;
+}
+.docx-viewer ul,
+.docx-viewer ol {
+  margin: 0.5em 0 0.5em 1.5em;
+}
+
+/* 图片自适应 */
+.docx-viewer img {
   display: block;
-  margin: 0.5em auto;
   max-width: 100%;
   height: auto;
+  margin: 0.5em auto;
 }
 </style>
