@@ -1,13 +1,11 @@
 <template>
   <div class="container">
-    <h1>Word 文档在线渲染（Mammoth）</h1>
+    <h1>带调试输出的 Word 渲染（Mammoth）</h1>
     <input type="file" accept=".docx" @change="onFileChange" />
 
-    <!-- 如果 htmlContent 非空，就用 v-html 渲染 -->
+    <!-- 渲染区域：如果有 HTML，就用 v-html 显示 -->
     <div v-if="htmlContent" class="docx-container" v-html="htmlContent"></div>
-
-    <!-- 如果没选文件时，给个提示 -->
-    <p v-else class="tip">请选择一个 .docx 文件，稍等片刻即可看到渲染结果</p>
+    <p v-else class="tip">请选择一个 .docx 文件，稍等片刻即可看到渲染结果。</p>
   </div>
 </template>
 
@@ -15,10 +13,12 @@
 import { ref } from 'vue'
 import mammoth from 'mammoth'
 
+// 用来存放转换后的 HTML
 const htmlContent = ref('')
 
-async function onFileChange(evt) {
-  const file = evt.target.files[0]
+async function onFileChange(evt: Event) {
+  const input = evt.target as HTMLInputElement
+  const file = input.files?.[0]
   if (!file) return
 
   try {
@@ -28,7 +28,10 @@ async function onFileChange(evt) {
     // 2. 调用 mammoth 转 HTML
     const { value: html } = await mammoth.convertToHtml({ arrayBuffer })
 
-    // 3. 将生成的 HTML 注入页面
+    // 3. 在这里打印出 Mammoth 的原始 HTML 输出，方便调试
+    console.log('【Mammoth 输出的 HTML】：', html)
+
+    // 4. 注入页面
     htmlContent.value = html
   }
   catch (err) {
@@ -42,7 +45,7 @@ async function onFileChange(evt) {
 .container {
   max-width: 800px;
   margin: 2rem auto;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: sans-serif;
   padding: 1rem;
 }
 input[type="file"] {
@@ -57,6 +60,11 @@ input[type="file"] {
   padding: 1rem;
   border: 1px solid #ddd;
   background: #fafafa;
+  color: #000
+}
+
+.docx-container * {
+  color: inherit !important;
 }
 /* 基本段落间距 */
 .docx-container p {
@@ -72,5 +80,12 @@ input[type="file"] {
 .docx-container td {
   border: 1px solid #ccc;
   padding: 0.5em;
+}
+/* 图片自适应宽度 */
+.docx-container img {
+  display: block;
+  margin: 0.5em auto;
+  max-width: 100%;
+  height: auto;
 }
 </style>
