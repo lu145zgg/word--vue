@@ -1,10 +1,14 @@
 <template>
   <div class="container">
     <h1>跨段落连体文本高亮（手动拆分版）</h1>
+
     <div class="controls">
+      <label>1. 上传 Word 文件：</label>
       <input type="file" accept=".docx" @change="onFileUpload" />
     </div>
+
     <div class="controls">
+      <label>2. 输入要匹配的连续区块：</label>
       <textarea
         v-model="targetText"
         placeholder="粘贴一段跨多个段落的连体文本"
@@ -12,6 +16,7 @@
       ></textarea>
       <button @click="applyHighlight">高亮匹配</button>
     </div>
+
     <div ref="viewer" class="docx-viewer"></div>
   </div>
 </template>
@@ -98,7 +103,7 @@ async function applyHighlight() {
   const re = buildRegex(targetText.value)
   let m
   const matches = []
-  while ((m = re.exec(flat))) {
+  while ((m = re.exec(flat)) !== null) {
     matches.push({ idx: m.index, len: m[0].length })
   }
   if (!matches.length) {
@@ -114,8 +119,9 @@ async function applyHighlight() {
 
 <style>
 .container {
-  max-width: 800px;
-  margin: 2rem auto;
+  
+  max-width: 100%;
+  margin: 0 auto;
   font-family: sans-serif;
   display: flex;
   flex-direction: column;
@@ -129,16 +135,28 @@ async function applyHighlight() {
 textarea {
   flex: 1;
   padding: 0.5rem;
+  font-family: inherit;
+  width: 100%;
+  height: 200px;
 }
 button {
   padding: 0.5rem 1rem;
 }
 .docx-viewer {
-  border: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   padding: 1rem;
-  max-height: 70vh;
-  overflow: auto;
-  background: #fafafa;
+  background-color: #fafafa;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden; /* 去除滚动条 */
+}
+.docx-viewer p {
+  page-break-before: always;  /* 保持分页符 */
+  page-break-after: always;
+  margin: 10px 0;
+  line-height: 1.6;
 }
 .highlight {
   background: rgba(255,200,200,0.8);
