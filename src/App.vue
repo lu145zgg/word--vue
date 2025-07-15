@@ -1,8 +1,8 @@
 <template>
   <div class="container">
-    <h1>DOCX Preview + 文本高亮（纯 JS）</h1>
+    <h1>DOCX Preview + 文本高亮（纯 JS） </h1>
     <label>
-      1. 上传 Word：
+      1. 上传 Word:
       <input type="file" accept=".docx" @change="onFileUpload" />
     </label>
     <label>
@@ -92,7 +92,7 @@ async function applyHighlight() {
 }
 </script>
 
-<style scoped>
+<style>
 .container { max-width: 800px; margin:2rem auto; font-family:sans-serif; }
 .docx-viewer { border:1px solid #ddd; padding:1rem; max-height:70vh; overflow:auto; }
 .docx-viewer table { width:100%; border-collapse:collapse; margin:1em 0; }
