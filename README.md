@@ -1,5 +1,6 @@
-# Vue 3 + Vite
+# 识别文本+高亮+可点击跳转
+不再用 surroundContents：改为“收集所有文本节点 → 构建扁平文本 → 反向手动拆分替换”，绝不会跨节点报错。
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+倒序处理：从后向前替换，前面的替换不会影响后面的文本节点索引。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+跨段落连续匹配：flat 是所有段落文字的串联，即使你匹配的文字分布在多个 <p>，也能一次性命中。
