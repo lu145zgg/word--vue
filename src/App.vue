@@ -5,6 +5,7 @@
     <div class="controls">
       <label>1. 上传 Word 文件：</label>
       <input type="file" accept=".docx" @change="onFileUpload" />
+      
     </div>
 
     <div class="controls">
@@ -22,13 +23,13 @@
 </template>
 
 <script setup>
-// @ts-nocheck
 import { ref, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
 
 const viewer = ref(null)
 const targetText = ref('')
 let rawHtml = ''
+let highlightId = 0 // 用于跟踪匹配的高亮组
 
 // 上传并渲染
 async function onFileUpload(e) {
@@ -73,7 +74,7 @@ function collectTextNodes(root) {
 }
 
 // 高亮匹配文本
-function highlightByRange(nodes, idx, len, url) {
+function highlightByRange(nodes, idx, len, groupId) {
   const end = idx + len
   // 为不破坏后面节点的偏移，倒序处理匹配范围内的节点
   for (let i = nodes.length - 1; i >= 0; i--) {
@@ -86,15 +87,15 @@ function highlightByRange(nodes, idx, len, url) {
     const frag = document.createDocumentFragment()
     if (localS > 0) frag.appendChild(document.createTextNode(text.slice(0, localS)))
     const span = document.createElement('span')
-    span.className = 'highlight'
+    span.className = `highlight group-${groupId}`
     span.textContent = text.slice(localS, localE)
-    span.onclick = () => window.open(url, '_blank')
     frag.appendChild(span)
     if (localE < text.length) frag.appendChild(document.createTextNode(text.slice(localE)))
     node.parentNode.replaceChild(frag, node)
   }
 }
 
+// 高亮应用逻辑
 async function applyHighlight() {
   if (!viewer.value) return alert('请先上传并渲染文档')
 
@@ -116,14 +117,33 @@ async function applyHighlight() {
   }
 
   if (!matches.length) {
-
     return alert('未找到匹配文本')
   }
 
+  // 创建一个唯一的高亮组ID
+  highlightId++
+
   // 倒序高亮每个匹配，防止替换后影响后续偏移
   matches.reverse().forEach(({ idx, len }) =>
-    highlightByRange(nodes, idx, len, 'https://example.com/details')
+    highlightByRange(nodes, idx, len, highlightId)
   )
+  
+  // 添加事件监听器，当鼠标悬停时，所有同组的高亮一起变红
+  const highlightElements = document.querySelectorAll(`.group-${highlightId}`)
+  highlightElements.forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      document.querySelectorAll(`.group-${highlightId}`).forEach(highlightedEl => {
+        highlightedEl.style.backgroundColor = 'rgba(255, 0, 0, 0.8)'
+        highlightedEl.style.color = 'white'
+      })
+    })
+    el.addEventListener('mouseleave', () => {
+      document.querySelectorAll(`.group-${highlightId}`).forEach(highlightedEl => {
+        highlightedEl.style.backgroundColor = 'rgba(255, 200, 200, 0.8)'
+        highlightedEl.style.color = '#c00'
+      })
+    })
+  })
 }
 
 // 处理分页符：将分页符替换为 ------------ 
@@ -203,5 +223,13 @@ button {
 
 .highlight:hover {
   background: rgba(255,150,150,1);
+}
+
+/* 默认高亮效果 */
+.highlight:hover,
+.group-1 .highlight,
+.group-2 .highlight {
+  background: rgba(255, 100, 100, 1); /* 当鼠标悬停时显示所有同一组的高亮 */
+  color: #ff0000;
 }
 </style>
