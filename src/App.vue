@@ -116,7 +116,7 @@ async function applyHighlight() {
   }
 
   if (!matches.length) {
-  
+
     return alert('未找到匹配文本')
   }
 
@@ -166,10 +166,14 @@ button {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  background-color: #fafafa;
+  background-color: #ffffff;
   width: 100%;
   min-height: 100vh;
   overflow: hidden; /* 去除滚动条 */
+}
+
+.docx-wrapper {
+  background: #ffffff !important; /* 设置为白色，或其他你喜欢的颜色 */
 }
 
 .docx-viewer p {
@@ -184,7 +188,7 @@ button {
   display: block;
   text-align: center;
   margin: 20px 0;
-  color: gray;
+  color: rgb(255, 255, 255);
   font-weight: bold;
 }
 
