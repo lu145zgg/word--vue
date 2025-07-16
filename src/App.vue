@@ -5,9 +5,8 @@
     <div class="controls">
       <label>1. 上传 Word 文件：</label>
       <input type="file" accept=".docx" @change="onFileUpload" />
-      
     </div>
-
+    
     <div class="controls">
       <label>2. 输入要匹配的连续区块：</label>
       <textarea
@@ -89,6 +88,8 @@ function highlightByRange(nodes, idx, len, groupId) {
     const span = document.createElement('span')
     span.className = `highlight group-${groupId}`
     span.textContent = text.slice(localS, localE)
+    // 保留跳转事件
+    span.onclick = () => window.open('https://example.com/details', '_blank')
     frag.appendChild(span)
     if (localE < text.length) frag.appendChild(document.createTextNode(text.slice(localE)))
     node.parentNode.replaceChild(frag, node)
