@@ -45,6 +45,23 @@ async function onFileUpload(e) {
 
   // 处理分页符
   handlePagination()
+
+  // 处理表格渲染
+  handleTableRendering()
+}
+
+// 处理表格渲染
+function handleTableRendering() {
+  const tables = viewer.value.querySelectorAll('table')
+  tables.forEach(table => {
+    // 设置表格样式
+    table.style.borderCollapse = 'collapse'
+    const cells = table.querySelectorAll('td, th')
+    cells.forEach(cell => {
+      cell.style.padding = '8px'
+      cell.style.border = '1px solid #ddd'
+    })
+  })
 }
 
 // 构造允许任意空白的正则
@@ -75,25 +92,38 @@ function collectTextNodes(root) {
 // 高亮匹配文本
 function highlightByRange(nodes, idx, len, groupId) {
   const end = idx + len
-  // 为不破坏后面节点的偏移，倒序处理匹配范围内的节点
+  // 倒序处理，以防止文本替换后影响后续节点
   for (let i = nodes.length - 1; i >= 0; i--) {
     const { node, start, end: nodeEnd } = nodes[i]
     if (nodeEnd <= idx || start >= end) continue
     const text = node.nodeValue
     const localS = Math.max(0, idx - start)
     const localE = Math.min(text.length, end - start)
-    // 构建新片段：prefix + <span>match</span> + suffix
+    // 构建新的片段：前缀 + <span>匹配内容</span> + 后缀
     const frag = document.createDocumentFragment()
     if (localS > 0) frag.appendChild(document.createTextNode(text.slice(0, localS)))
     const span = document.createElement('span')
     span.className = `highlight group-${groupId}`
     span.textContent = text.slice(localS, localE)
-    // 保留跳转事件
-    span.onclick = () => window.open('https://example.com/details', '_blank')
     frag.appendChild(span)
     if (localE < text.length) frag.appendChild(document.createTextNode(text.slice(localE)))
     node.parentNode.replaceChild(frag, node)
   }
+}
+
+// 高亮表格中的单元格
+function highlightTableCells(table, idx, len, groupId) {
+  const cells = table.querySelectorAll('td, th')
+  cells.forEach(cell => {
+    const node = cell.firstChild // 假设文本在第一个子节点
+    if (node && node.nodeValue) {
+      const text = node.nodeValue
+      let matchIndex = text.indexOf(targetText.value) // 查找匹配的文本
+      if (matchIndex !== -1) {
+        highlightByRange([{ node, start: 0, end: text.length }], matchIndex, len, groupId)
+      }
+    }
+  })
 }
 
 // 高亮应用逻辑
@@ -124,11 +154,18 @@ async function applyHighlight() {
   // 创建一个唯一的高亮组ID
   highlightId++
 
-  // 倒序高亮每个匹配，防止替换后影响后续偏移
-  matches.reverse().forEach(({ idx, len }) =>
+  // 倒序高亮每个匹配
+  matches.reverse().forEach(({ idx, len }) => {
+    // 高亮文本节点
     highlightByRange(nodes, idx, len, highlightId)
-  )
-  
+
+    // 高亮表格单元格
+    const tables = viewer.value.querySelectorAll('table')
+    tables.forEach(table => {
+      highlightTableCells(table, idx, len, highlightId)
+    })
+  })
+
   // 添加事件监听器，当鼠标悬停时，所有同组的高亮一起变红
   const highlightElements = document.querySelectorAll(`.group-${highlightId}`)
   highlightElements.forEach(el => {
@@ -152,7 +189,7 @@ function handlePagination() {
   const pageBreaks = viewer.value.querySelectorAll('.page-break')
   pageBreaks.forEach(page => {
     page.style.pageBreakBefore = 'always'; // 强制分页
-  });
+  })
 }
 </script>
 
