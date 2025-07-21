@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <h1>跨段落连体文本高亮（手动拆分版）</h1>
-
+    
     <div class="controls">
       <label>1. 上传 Word 文件：</label>
       <input type="file" accept=".docx" @change="onFileUpload" />
@@ -147,10 +147,12 @@ async function applyHighlight() {
   })
 }
 
-// 处理分页符：将分页符替换为 ------------ 
+// 处理分页符：将分页符替换为 A4 分页样式
 function handlePagination() {
-  // 替换所有分页符
-  viewer.value.innerHTML = viewer.value.innerHTML.replace(/<div class="page-break">/g, '<div class="page-break">------------</div>');
+  const pageBreaks = viewer.value.querySelectorAll('.page-break')
+  pageBreaks.forEach(page => {
+    page.style.pageBreakBefore = 'always'; // 强制分页
+  });
 }
 </script>
 
@@ -187,30 +189,34 @@ button {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  background-color: #ffffff;
+  background-color: #ffffff; /* 去除灰色背景 */
   width: 100%;
   min-height: 100vh;
-  overflow: hidden; /* 去除滚动条 */
+  overflow: hidden;
 }
 
+/* A4 纸样式 */
 .docx-wrapper {
-  background: #ffffff !important; /* 设置为白色，或其他你喜欢的颜色 */
+  width: 100%; /* 宽度设为100%，以适应容器大小 */
+  margin: 0 auto;
+  padding: 15mm;
+  border: 0px solid #ffffff;
+  box-sizing: border-box;
+  background: #ffffff; /* 这里去除了灰色背景，设为白色 */
 }
 
-.docx-viewer p {
-  margin: 10px 0;
-  padding: 15px;
-  border-radius: 8px;
-  line-height: 1.6;
+/* 保证去除父级容器的任何背景颜色 */
+.docx-wrapper, .docx-viewer {
+  background-color: transparent !important;
 }
 
-/* 为分页符设置样式 */
 .page-break {
   display: block;
   text-align: center;
   margin: 20px 0;
-  color: rgb(255, 255, 255);
   font-weight: bold;
+  padding-top: 10px;
+  color: #000; /* 设置分页符文本颜色 */
 }
 
 .highlight {
@@ -230,7 +236,7 @@ button {
 .highlight:hover,
 .group-1 .highlight,
 .group-2 .highlight {
-  background: rgba(255, 100, 100, 1); /* 当鼠标悬停时显示所有同一组的高亮 */
+  background: rgba(255, 100, 100, 1);
   color: #ff0000;
 }
 </style>
