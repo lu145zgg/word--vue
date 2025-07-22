@@ -14,7 +14,14 @@
         placeholder="粘贴一段跨多个段落的连体文本"
         rows="4"
       ></textarea>
-      <button @click="applyHighlight">高亮匹配</button>
+<el-button
+  type="primary"
+  :plain="true"
+  @click="applyHighlight"
+>
+  高亮匹配
+</el-button>
+
     </div>
 
     <div ref="viewer" class="docx-viewer"></div>
