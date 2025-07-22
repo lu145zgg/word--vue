@@ -1,12 +1,23 @@
 <template>
   <div class="container">
     <h1>跨段落连体文本高亮（手动拆分版）</h1>
-    
+
     <div class="controls">
       <label>1. 上传 Word 文件：</label>
-      <input type="file" accept=".docx" @change="onFileUpload" />
+      <!-- 隐藏原生 input，并绑定 ref -->
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".docx"
+        @change="onFileUpload"
+        style="display: none;"
+      />
+      <!-- 用 Element 按钮触发 -->
+      <el-button type="primary" plain @click="onSelectFile">
+        选择文件
+      </el-button>
     </div>
-    
+
     <div class="controls">
       <label>2. 输入要匹配的连续区块：</label>
       <textarea
@@ -14,29 +25,27 @@
         placeholder="粘贴一段跨多个段落的连体文本"
         rows="4"
       ></textarea>
-<el-button
-  type="primary"
-  :plain="true"
-  @click="applyHighlight"
->
-  高亮匹配
-</el-button>
-
+      <el-button type="primary" plain @click="applyHighlight">
+        高亮匹配
+      </el-button>
     </div>
 
     <div ref="viewer" class="docx-viewer"></div>
   </div>
 </template>
 
+
 <script setup>
 import { ref, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
-
+const fileInput = ref(null)
 const viewer = ref(null)
 const targetText = ref('')
 let rawHtml = ''
 let highlightId = 0 // 用于跟踪匹配的高亮组
-
+function onSelectFile() {
+  fileInput.value && fileInput.value.click()
+}
 // 上传并渲染
 async function onFileUpload(e) {
   const file = e.target.files?.[0]
