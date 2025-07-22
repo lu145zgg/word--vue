@@ -1,9 +1,10 @@
 <template>
   <div class="container">
-    <h1>跨段落连体文本高亮（手动拆分版）</h1>
+    <h1>Word转html（手动高亮）</h1>
 
+    <!-- 上传控件 -->
     <div class="controls">
-      <label>1. 上传 Word 文件：</label>
+      <label> 1. 上传 Word 文件：</label>
       <!-- 隐藏原生 input，并绑定 ref -->
       <input
         ref="fileInput"
@@ -12,75 +13,77 @@
         @change="onFileUpload"
         style="display: none;"
       />
-      <!-- 用 Element 按钮触发 -->
+      <!-- Element 按钮触发文件对话框 -->
       <el-button type="primary" plain @click="onSelectFile">
         选择文件
       </el-button>
     </div>
 
+    <!-- 文本输入 & 高亮 -->
     <div class="controls">
       <label>2. 输入要匹配的连续区块：</label>
-      <textarea
+      <el-input
+        type="textarea"
         v-model="targetText"
+        :rows="4"
         placeholder="粘贴一段跨多个段落的连体文本"
-        rows="4"
-      ></textarea>
+      />
       <el-button type="primary" plain @click="applyHighlight">
         高亮匹配
       </el-button>
     </div>
 
+    <!-- 渲染区域 -->
     <div ref="viewer" class="docx-viewer"></div>
   </div>
 </template>
 
 
+
 <script setup>
 import { ref, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
+
 const fileInput = ref(null)
 const viewer = ref(null)
 const targetText = ref('')
 let rawHtml = ''
 let highlightId = 0 // 用于跟踪匹配的高亮组
+
 function onSelectFile() {
-  fileInput.value && fileInput.value.click()
+  fileInput.value?.click()
 }
-// 上传并渲染
+
 async function onFileUpload(e) {
   const file = e.target.files?.[0]
   if (!file || !viewer.value) return
   const buf = await file.arrayBuffer()
 
-  // 使用 docx-preview 渲染 Word 文档内容
   viewer.value.innerHTML = ''
   await renderAsync(buf, viewer.value)
-
   await nextTick()
+
   rawHtml = viewer.value.innerHTML
-
-  // 处理分页符
   handlePagination()
-
-  // 处理表格渲染
   handleTableRendering()
 }
 
-// 处理表格渲染
 function handleTableRendering() {
-  const tables = viewer.value.querySelectorAll('table')
-  tables.forEach(table => {
-    // 设置表格样式
+  viewer.value.querySelectorAll('table').forEach(table => {
     table.style.borderCollapse = 'collapse'
-    const cells = table.querySelectorAll('td, th')
-    cells.forEach(cell => {
+    table.querySelectorAll('td, th').forEach(cell => {
       cell.style.padding = '8px'
       cell.style.border = '1px solid #ddd'
     })
   })
 }
 
-// 构造允许任意空白的正则
+function handlePagination() {
+  viewer.value.querySelectorAll('.page-break').forEach(pb => {
+    pb.style.pageBreakBefore = 'always'
+  })
+}
+
 function escapeRegExp(s) {
   return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 }
@@ -92,7 +95,6 @@ function buildRegex(str) {
   )
 }
 
-// 收集所有文本节点
 function collectTextNodes(root) {
   const nodes = []
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null)
@@ -102,20 +104,17 @@ function collectTextNodes(root) {
     nodes.push({ node, start: charCount, end: charCount + len })
     charCount += len
   }
-  return { nodes, totalLength: charCount }
+  return { nodes }
 }
 
-// 高亮匹配文本
 function highlightByRange(nodes, idx, len, groupId) {
-  const end = idx + len
-  // 倒序处理，以防止文本替换后影响后续节点
+  const endPos = idx + len
   for (let i = nodes.length - 1; i >= 0; i--) {
-    const { node, start, end: nodeEnd } = nodes[i]
-    if (nodeEnd <= idx || start >= end) continue
+    const { node, start, end } = nodes[i]
+    if (end <= idx || start >= endPos) continue
     const text = node.nodeValue
     const localS = Math.max(0, idx - start)
-    const localE = Math.min(text.length, end - start)
-    // 构建新的片段：前缀 + <span>匹配内容</span> + 后缀
+    const localE = Math.min(text.length, endPos - start)
     const frag = document.createDocumentFragment()
     if (localS > 0) frag.appendChild(document.createTextNode(text.slice(0, localS)))
     const span = document.createElement('span')
@@ -127,87 +126,88 @@ function highlightByRange(nodes, idx, len, groupId) {
   }
 }
 
-// 高亮表格中的单元格
 function highlightTableCells(table, idx, len, groupId) {
-  const cells = table.querySelectorAll('td, th')
-  cells.forEach(cell => {
-    const node = cell.firstChild // 假设文本在第一个子节点
-    if (node && node.nodeValue) {
+  table.querySelectorAll('td, th').forEach(cell => {
+    const node = cell.firstChild
+    if (node?.nodeValue) {
       const text = node.nodeValue
-      let matchIndex = text.indexOf(targetText.value) // 查找匹配的文本
-      if (matchIndex !== -1) {
-        highlightByRange([{ node, start: 0, end: text.length }], matchIndex, len, groupId)
+      const mi = text.toLowerCase().indexOf(targetText.value.trim().toLowerCase())
+      if (mi !== -1) {
+        highlightByRange([{ node, start: 0, end: text.length }], mi, len, groupId)
       }
     }
   })
 }
 
-// 高亮应用逻辑
 async function applyHighlight() {
-  if (!viewer.value) return alert('请先上传并渲染文档')
+  if (!viewer.value) {
+    return alert('请先上传并渲染文档')
+  }
 
-  // 恢复原始 HTML
+  // 恢复原始内容
   viewer.value.innerHTML = rawHtml
   await nextTick()
 
-  // 收集文本节点并构造扁平文本
-  const { nodes, totalLength } = collectTextNodes(viewer.value)
-  let flat = ''
-  nodes.forEach(({ node }) => { flat += node.nodeValue })
-
-  // 在 flat 上全局搜所有匹配
+  // 收集并匹配
+  const { nodes } = collectTextNodes(viewer.value)
+  const flat = nodes.map(n => n.node.nodeValue).join('')
   const re = buildRegex(targetText.value)
-  let m
-  const matches = []
-  while ((m = re.exec(flat)) !== null) {
+  let m, matches = []
+  while ((m = re.exec(flat))) {
     matches.push({ idx: m.index, len: m[0].length })
   }
-
   if (!matches.length) {
     return alert('未找到匹配文本')
   }
 
-  // 创建一个唯一的高亮组ID
+  // 执行高亮
   highlightId++
-
-  // 倒序高亮每个匹配
   matches.reverse().forEach(({ idx, len }) => {
-    // 高亮文本节点
     highlightByRange(nodes, idx, len, highlightId)
-
-    // 高亮表格单元格
-    const tables = viewer.value.querySelectorAll('table')
-    tables.forEach(table => {
+    viewer.value.querySelectorAll('table').forEach(table => {
       highlightTableCells(table, idx, len, highlightId)
     })
   })
 
-  // 添加事件监听器，当鼠标悬停时，所有同组的高亮一起变红
-  const highlightElements = document.querySelectorAll(`.group-${highlightId}`)
-  highlightElements.forEach(el => {
+  // 等待 DOM 更新，再自动跳转到第一处高亮
+  await nextTick()
+  const firstEl = viewer.value.querySelector(`.group-${highlightId}`)
+  if (firstEl) {
+    firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  // 为所有高亮元素添加交互：鼠标悬停变色，点击时跳转
+  viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(el => {
     el.addEventListener('mouseenter', () => {
-      document.querySelectorAll(`.group-${highlightId}`).forEach(highlightedEl => {
-        highlightedEl.style.backgroundColor = 'rgba(255, 0, 0, 0.8)'
-        highlightedEl.style.color = 'white'
+      viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(e => {
+        e.style.backgroundColor = 'rgba(255,0,0,0.8)'
+        e.style.color = '#fff'
       })
     })
     el.addEventListener('mouseleave', () => {
-      document.querySelectorAll(`.group-${highlightId}`).forEach(highlightedEl => {
-        highlightedEl.style.backgroundColor = 'rgba(255, 200, 200, 0.8)'
-        highlightedEl.style.color = '#c00'
+      viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(e => {
+        e.style.backgroundColor = 'rgba(255,200,200,0.8)'
+        e.style.color = '#c00'
       })
     })
-  })
-}
+    // 在脚本最上面，定义你的目标网址
+const targetUrl = 'https://your.target.url/path'
 
-// 处理分页符：将分页符替换为 A4 分页样式
-function handlePagination() {
-  const pageBreaks = viewer.value.querySelectorAll('.page-break')
-  pageBreaks.forEach(page => {
-    page.style.pageBreakBefore = 'always'; // 强制分页
+// ……上面高亮逻辑不变……
+
+// 为所有高亮元素添加交互
+viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(el => {
+  // …鼠标悬停样式省略…
+  
+  el.addEventListener('click', () => {
+    // 打开新窗口（或改成 window.location.href = targetUrl）
+    window.open(targetUrl, '_blank')
+  })
+})
   })
 }
 </script>
+
 
 <style>
 .container {
