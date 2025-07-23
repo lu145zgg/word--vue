@@ -8,6 +8,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "axios": "^1.10.0",
     "docx-preview": "^0.3.5",
     "element-plus": "^2.10.4",
     "mammoth": "^1.4.19",
@@ -16,5 +17,10 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.1.1",
     "vite": "^4.4.9"
-  }
+  },
+  "description": "不再用 surroundContents：改为“收集所有文本节点 → 构建扁平文本 → 反向手动拆分替换”，绝不会跨节点报错。",
+  "main": "vite.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

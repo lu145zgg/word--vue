@@ -2,10 +2,9 @@
   <div class="container">
     <h1>Word转html（手动高亮）</h1>
 
-    <!-- 上传控件 -->
+    <!-- 1. 上传 Word 文件 -->
     <div class="controls">
-      <label> 1. 上传 Word 文件：</label>
-      <!-- 隐藏原生 input，并绑定 ref -->
+      <label>1. 上传 Word 文件：</label>
       <input
         ref="fileInput"
         type="file"
@@ -13,15 +12,32 @@
         @change="onFileUpload"
         style="display: none;"
       />
-      <!-- Element 按钮触发文件对话框 -->
       <el-button type="primary" plain @click="onSelectFile">
         选择文件
       </el-button>
     </div>
 
-    <!-- 文本输入 & 高亮 -->
+    <!-- 2. 从后端加载已上传文件 -->
     <div class="controls">
-      <label>2. 输入要匹配的连续区块：</label>
+      <label>2. 从后端加载文件：</label>
+      <el-select
+        v-model="selectedUrl"
+        placeholder="请选择后端文件"
+        style="min-width: 240px;"
+        @change="onSelectBackendFile"
+      >
+        <el-option
+          v-for="item in fileList"
+          :key="item.url"
+          :label="item.filename"
+          :value="item.url"
+        />
+      </el-select>
+    </div>
+
+    <!-- 3. 文本匹配 & 高亮 -->
+    <div class="controls">
+      <label>3. 输入要匹配的连续区块：</label>
       <el-input
         type="textarea"
         v-model="targetText"
@@ -40,25 +56,76 @@
 
 
 
+
+
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
+import axios from 'axios'
 import { renderAsync } from 'docx-preview'
 
-const fileInput = ref(null)
-const viewer = ref(null)
-const targetText = ref('')
-let rawHtml = ''
-let highlightId = 0 // 用于跟踪匹配的高亮组
+const fileInput   = ref(null)
+const viewer      = ref(null)
+const targetText  = ref('')
+const fileList    = ref([])   // 后端文件列表
+const selectedUrl = ref('')    // 选中的后端文件 URL
 
+// 点击高亮后要跳转到的目标网址
+const targetUrl = 'https://your.target.url/path'
+
+let rawHtml     = ''
+let highlightId = 0  // 用于跟踪匹配的高亮组
+
+// 触发本地文件选择
 function onSelectFile() {
   fileInput.value?.click()
 }
 
+// 本地文件上传到后端并渲染
 async function onFileUpload(e) {
   const file = e.target.files?.[0]
-  if (!file || !viewer.value) return
-  const buf = await file.arrayBuffer()
+  if (!file) return
 
+  const form = new FormData()
+  form.append('file', file)
+
+  try {
+    const { data } = await axios.post('/api/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    // 上传成功，刷新列表并渲染
+    await fetchFileList()
+    await fetchAndRender(data.url)
+  } catch (err) {
+    console.error(err)
+    alert('上传失败')
+  }
+}
+
+// 从后端拉取文件列表
+async function fetchFileList() {
+  try {
+    const { data } = await axios.get('/api/files')
+    fileList.value = data.files
+  } catch (err) {
+    console.error(err)
+  }
+}
+
+// 用户从下拉选中后端文件
+async function onSelectBackendFile(url) {
+  if (!url) return
+  await fetchAndRender(url)
+}
+
+// 下载二进制并渲染
+async function fetchAndRender(url) {
+  if (!viewer.value) return
+
+  // fetch 二进制
+  const resp = await fetch(url)
+  const buf  = await resp.arrayBuffer()
+
+  // 用 docx-preview 渲染
   viewer.value.innerHTML = ''
   await renderAsync(buf, viewer.value)
   await nextTick()
@@ -68,16 +135,18 @@ async function onFileUpload(e) {
   handleTableRendering()
 }
 
+// 处理表格样式
 function handleTableRendering() {
   viewer.value.querySelectorAll('table').forEach(table => {
     table.style.borderCollapse = 'collapse'
     table.querySelectorAll('td, th').forEach(cell => {
       cell.style.padding = '8px'
-      cell.style.border = '1px solid #ddd'
+      cell.style.border  = '1px solid #ddd'
     })
   })
 }
 
+// 处理分页符
 function handlePagination() {
   viewer.value.querySelectorAll('.page-break').forEach(pb => {
     pb.style.pageBreakBefore = 'always'
@@ -96,7 +165,7 @@ function buildRegex(str) {
 }
 
 function collectTextNodes(root) {
-  const nodes = []
+  const nodes  = []
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null)
   let charCount = 0, node
   while ((node = walker.nextNode())) {
@@ -115,12 +184,15 @@ function highlightByRange(nodes, idx, len, groupId) {
     const text = node.nodeValue
     const localS = Math.max(0, idx - start)
     const localE = Math.min(text.length, endPos - start)
+
     const frag = document.createDocumentFragment()
     if (localS > 0) frag.appendChild(document.createTextNode(text.slice(0, localS)))
+
     const span = document.createElement('span')
-    span.className = `highlight group-${groupId}`
+    span.className   = `highlight group-${groupId}`
     span.textContent = text.slice(localS, localE)
     frag.appendChild(span)
+
     if (localE < text.length) frag.appendChild(document.createTextNode(text.slice(localE)))
     node.parentNode.replaceChild(frag, node)
   }
@@ -130,8 +202,8 @@ function highlightTableCells(table, idx, len, groupId) {
   table.querySelectorAll('td, th').forEach(cell => {
     const node = cell.firstChild
     if (node?.nodeValue) {
-      const text = node.nodeValue
-      const mi = text.toLowerCase().indexOf(targetText.value.trim().toLowerCase())
+      const text = node.nodeValue.toLowerCase()
+      const mi   = text.indexOf(targetText.value.trim().toLowerCase())
       if (mi !== -1) {
         highlightByRange([{ node, start: 0, end: text.length }], mi, len, groupId)
       }
@@ -148,11 +220,11 @@ async function applyHighlight() {
   viewer.value.innerHTML = rawHtml
   await nextTick()
 
-  // 收集并匹配
+  // 收集文本并匹配
   const { nodes } = collectTextNodes(viewer.value)
-  const flat = nodes.map(n => n.node.nodeValue).join('')
-  const re = buildRegex(targetText.value)
-  let m, matches = []
+  const flat      = nodes.map(n => n.node.nodeValue).join('')
+  const re        = buildRegex(targetText.value)
+  let m, matches  = []
   while ((m = re.exec(flat))) {
     matches.push({ idx: m.index, len: m[0].length })
   }
@@ -169,44 +241,37 @@ async function applyHighlight() {
     })
   })
 
-  // 等待 DOM 更新，再自动跳转到第一处高亮
+  // 等待 DOM 更新，再自动滚动到第一处高亮
   await nextTick()
   const firstEl = viewer.value.querySelector(`.group-${highlightId}`)
   if (firstEl) {
     firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  // 为所有高亮元素添加交互：鼠标悬停变色，点击时跳转
+  // 为所有高亮元素添加交互：鼠标悬停变色 & 点击跳转
   viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(el => {
     el.addEventListener('mouseenter', () => {
       viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(e => {
         e.style.backgroundColor = 'rgba(255,0,0,0.8)'
-        e.style.color = '#fff'
+        e.style.color           = '#fff'
       })
     })
     el.addEventListener('mouseleave', () => {
       viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(e => {
         e.style.backgroundColor = 'rgba(255,200,200,0.8)'
-        e.style.color = '#c00'
+        e.style.color           = '#c00'
       })
     })
-    // 在脚本最上面，定义你的目标网址
-const targetUrl = 'https://your.target.url/path'
-
-// ……上面高亮逻辑不变……
-
-// 为所有高亮元素添加交互
-viewer.value.querySelectorAll(`.group-${highlightId}`).forEach(el => {
-  // …鼠标悬停样式省略…
-  
-  el.addEventListener('click', () => {
-    // 打开新窗口（或改成 window.location.href = targetUrl）
-    window.open(targetUrl, '_blank')
-  })
-})
+    el.addEventListener('click', () => {
+      window.open(targetUrl, '_blank')
+    })
   })
 }
+
+// 初始加载时获取后端文件列表
+onMounted(fetchFileList)
 </script>
+
 
 
 <style>
